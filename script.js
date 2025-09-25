@@ -1,71 +1,133 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-const box = 20; // Snake and food size
-let snake = [{ x: 200, y: 200 }];
-let food = { x: getRandomPosition(), y: getRandomPosition() };
-let dx = box, dy = 0;
-let score = 0;
+// --- Game settings ---
+const WIDTH = canvas.width;
+const HEIGHT = canvas.height;
+const CELL = 20;
 
-// Generate random position for food
-function getRandomPosition() {
-    return Math.floor(Math.random() * (canvas.width / box)) * box;
+let snake = [
+  {x: 100, y: 100},
+  {x: 80, y: 100},
+  {x: 60, y: 100}
+];
+
+let direction = {x: CELL, y: 0};
+let speed = 10; // frames per second
+
+// --- Apples (3 kinds: normal, slow, fast) ---
+let apples = [];
+function spawnApple() {
+  const x = Math.floor(Math.random() * (WIDTH / CELL)) * CELL;
+  const y = Math.floor(Math.random() * (HEIGHT / CELL)) * CELL;
+  const kinds = ["normal", "slow", "fast"];
+  const kind = kinds[Math.floor(Math.random() * kinds.length)];
+  apples.push({x, y, kind});
+}
+for (let i = 0; i < 3; i++) spawnApple();
+
+// --- Expanding/shrinking walls ---
+let wallMargin = 0;
+let expanding = true;
+let expandTimer = 0;
+const EXPAND_INTERVAL = 30; // ticks between wall size change
+
+function drawWalls() {
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(
+    wallMargin,
+    wallMargin,
+    WIDTH - wallMargin * 2,
+    HEIGHT - wallMargin * 2
+  );
 }
 
-// Listen for arrow key input
-document.addEventListener("keydown", changeDirection);
-
-function changeDirection(event) {
-    if (event.key === "ArrowUp" && dy === 0) { dx = 0; dy = -box; }
-    else if (event.key === "ArrowDown" && dy === 0) { dx = 0; dy = box; }
-    else if (event.key === "ArrowLeft" && dx === 0) { dx = -box; dy = 0; }
-    else if (event.key === "ArrowRight" && dx === 0) { dx = box; dy = 0; }
+function insideWalls(pos) {
+  return (
+    pos.x >= wallMargin &&
+    pos.x < WIDTH - wallMargin &&
+    pos.y >= wallMargin &&
+    pos.y < HEIGHT - wallMargin
+  );
 }
 
-// Game loop
-function updateGame() {
-    // Move snake by adding new head
-    let newHead = { x: snake[0].x + dx, y: snake[0].y + dy };
+// --- Controls ---
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowUp" && direction.y === 0) direction = {x: 0, y: -CELL};
+  if (e.key === "ArrowDown" && direction.y === 0) direction = {x: 0, y: CELL};
+  if (e.key === "ArrowLeft" && direction.x === 0) direction = {x: -CELL, y: 0};
+  if (e.key === "ArrowRight" && direction.x === 0) direction = {x: CELL, y: 0};
+});
 
-    // Check for wall collision
-    if (newHead.x < 0 || newHead.x >= canvas.width || newHead.y < 0 || newHead.y >= canvas.height) {
-        alert(`Game Over! Score: ${score}`);
-        document.location.reload();
+// --- Main Game Loop ---
+function gameLoop() {
+  // Move snake
+  const head = {x: snake[0].x + direction.x, y: snake[0].y + direction.y};
+  snake.unshift(head);
+
+  // Apple collision
+  let ateApple = false;
+  for (let i = 0; i < apples.length; i++) {
+    const apple = apples[i];
+    if (head.x === apple.x && head.y === apple.y) {
+      ateApple = true;
+      apples.splice(i, 1);
+      spawnApple();
+      // Speed effects
+      if (apple.kind === "slow") speed = Math.max(5, speed - 2);
+      if (apple.kind === "fast") speed = Math.min(30, speed + 2);
+      break;
     }
+  }
+  if (!ateApple) snake.pop();
 
-    // Check for self-collision
-    for (let segment of snake) {
-        if (newHead.x === segment.x && newHead.y === segment.y) {
-            alert(`Game Over! Score: ${score}`);
-            document.location.reload();
-        }
+  // Collision with self or wall
+  for (let i = 1; i < snake.length; i++) {
+    if (snake[i].x === head.x && snake[i].y === head.y) {
+      alert("Game Over! You hit yourself.");
+      document.location.reload();
     }
+  }
+  if (!insideWalls(head)) {
+    alert("Game Over! You hit the wall.");
+    document.location.reload();
+  }
 
-    // Check if food is eaten
-    if (newHead.x === food.x && newHead.y === food.y) {
-        score++;
-        food = { x: getRandomPosition(), y: getRandomPosition() };
+  // Expand/shrink walls
+  expandTimer++;
+  if (expandTimer >= EXPAND_INTERVAL) {
+    expandTimer = 0;
+    if (expanding) {
+      wallMargin += CELL;
+      if (wallMargin >= WIDTH / 4) expanding = false;
     } else {
-        snake.pop(); // Remove tail if no food is eaten
+      wallMargin -= CELL;
+      if (wallMargin <= 0) expanding = true;
     }
+  }
 
-    snake.unshift(newHead); // Add new head
+  // --- Drawing ---
+  ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-    drawGame();
+  // Draw apples
+  apples.forEach((apple) => {
+    if (apple.kind === "normal") ctx.fillStyle = "red";
+    if (apple.kind === "slow") ctx.fillStyle = "blue";
+    if (apple.kind === "fast") ctx.fillStyle = "yellow";
+    ctx.fillRect(apple.x, apple.y, CELL, CELL);
+  });
+
+  // Draw snake
+  ctx.fillStyle = "lime";
+  snake.forEach((segment) => {
+    ctx.fillRect(segment.x, segment.y, CELL, CELL);
+  });
+
+  // Draw walls
+  drawWalls();
+
+  setTimeout(gameLoop, 1000 / speed);
 }
 
-// Draw snake and food
-function drawGame() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw food
-    ctx.fillStyle = "red";
-    ctx.fillRect(food.x, food.y, box, box);
-
-    // Draw snake
-    ctx.fillStyle = "green";
-    snake.forEach(segment => ctx.fillRect(segment.x, segment.y, box, box));
-}
-
-// Run game loop every 100ms
-setInterval(updateGame, 100);
+gameLoop();
