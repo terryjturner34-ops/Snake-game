@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Game Over - Snake Game</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Snake Game with Expanding & Shrinking Walls</h1>
+  <div id="gameCanvas" style="display: flex; justify-content: center; align-items: center; background: #000; width: 600px; height: 600px; margin: auto; border: 2px solid white;">
+    <h1 style="color: white; font-size: 48px;">Game Over</h1>
+  </div>
+  <p id="scoreDisplay">Your final score: 0</p>
+  <p>Apples: 🟢 Slow | 🔴 Normal | 🟡 Fast</p>
+  <button onclick="window.location.href='index.html'">Play Again</button>
+  <button onclick="window.location.href='welcome.html'">Back to Welcome</button>
+  <script>
+    // Get the score from the URL query parameter
+    const params = new URLSearchParams(window.location.search);
+    const score = params.get('score') || 0;
+
+    // Update the score display
+    document.getElementById('scoreDisplay').textContent = `Your final score: ${score}`;
+  </script>
+</body>
+</html>
